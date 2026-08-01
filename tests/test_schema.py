@@ -5,7 +5,7 @@ from src.database.build_database import (
     create_financial_metrics_view,
     seed_demo_data
 )
-from src.database.schema import get_database_schema
+from src.database.schema import format_schema_for_prompt, get_database_schema
 
 
 def test_get_database_schema_returns_tables_and_columns(
@@ -42,5 +42,31 @@ def test_get_database_schema_returns_tables_and_columns(
     assert (
         schema["valuation_snapshots"]["snapshot_date"]
         == "DATE"
+    )
+
+def test_format_schema_for_prompt_creates_readable_context():
+    schema = {
+        "companies": {
+            "ticker": "VARCHAR",
+            "company_name": "VARCHAR"
+        },
+        "financial_metrics": {
+            "ticker": "VARCHAR",
+            "fiscal_year": "INTEGER",
+            "revenue_growth_pct": "DOUBLE"
+        }
+    }
+
+    formatted_schema = format_schema_for_prompt(schema)
+
+    assert formatted_schema == (
+        "TABLE companies\n"
+        "- ticker: VARCHAR\n"
+        "- company_name: VARCHAR\n"
+        "\n"
+        "TABLE financial_metrics\n"
+        "- ticker: VARCHAR\n"
+        "- fiscal_year: INTEGER\n"
+        "- revenue_growth_pct: DOUBLE"
     )
     

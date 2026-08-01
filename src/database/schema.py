@@ -44,3 +44,33 @@ def get_database_schema(
         schema[table_name][column_name] = data_type
 
     return schema
+
+def format_schema_for_prompt(
+    schema: dict[str, dict[str, str]]
+) -> str:
+    """
+    Convert a database schema dictionary into readable prompt context.
+
+    Example:
+
+    TABLE companies
+    - ticker: VARCHAR
+    - company_name: VARCHAR
+    """
+    sections = []
+
+    for table_name, columns in schema.items():
+        lines = [
+            f"TABLE {table_name}"
+        ]
+
+        for column_name, data_type in columns.items():
+            lines.append(
+                f"- {column_name}: {data_type}"
+            )
+
+        sections.append(
+            "\n".join(lines)
+        )
+
+    return "\n\n".join(sections)
