@@ -1,0 +1,10 @@
+duckdb
+duckdb-engine
+pandas
+pydantic
+PyYAML
+ollama
+sqlglot
+SQLAlchemy
+pytest
+pytest-cov
