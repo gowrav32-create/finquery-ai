@@ -1,0 +1,28 @@
+[
+  {
+    "id": "finance_001",
+    "category": "ranking",
+    "difficulty": "standard",
+    "question": "Which company had the highest revenue growth in 2024?",
+    "expected_tables": [
+      "financial_metrics"
+    ],
+    "expected_columns": [
+      "ticker",
+      "revenue_growth_pct"
+    ],
+    "expected_row_count": 1,
+    "expected_rows": [
+      {
+        "ticker": "NSS",
+        "revenue_growth_pct": 22.92
+      }
+    ],
+    "requirements": {
+      "must_be_read_only": true,
+      "must_execute": true,
+      "must_not_request_clarification": true
+    },
+    "notes": "The answer must include both the winning ticker and the supporting revenue-growth value."
+  }
+]
