@@ -1,3 +1,8 @@
+import json
+
+from dataclasses import asdict
+from pathlib import Path
+
 def format_percentage(value: float | None) -> str:
     if value is None:
         return "N/A"
@@ -164,3 +169,36 @@ def build_markdown_report(report_data: dict) -> str:
     lines.append("")
 
     return "\n".join(lines)
+
+def save_financial_evaluation_report(
+    evaluation_run,
+    report_path: Path
+) -> None:
+    """
+    Save one FinQuery AI financial evaluation run as JSON.
+
+    The report preserves:
+    - prompt version
+    - pass/fail summary
+    - failed case IDs
+    - detailed case-level evaluation evidence
+    """
+    report_path.parent.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    report_data = asdict(
+        evaluation_run
+    )
+
+    with report_path.open(
+        "w",
+        encoding="utf-8"
+    ) as file:
+        json.dump(
+            report_data,
+            file,
+            indent=2
+        )
+
