@@ -1,15 +1,19 @@
 from datetime import datetime
-
-from src.regression_detection.reporting import (
-    save_financial_evaluation_report
-)
-
 from pathlib import Path
 
 from src.database.build_database import (
     build_financial_database,
     create_financial_metrics_view,
     seed_demo_data
+)
+from src.regression_detection.baseline import (
+    load_evaluation_report
+)
+from src.regression_detection.regression import (
+    compare_financial_runs
+)
+from src.regression_detection.reporting import (
+    save_financial_evaluation_report
 )
 from src.regression_detection.runner import (
     run_financial_evaluation
@@ -33,6 +37,10 @@ def main() -> None:
         "prompts/sql_generation_v1.yaml"
     )
 
+    baseline_path = Path(
+        "baselines/trusted_baseline_v1.json"
+    )
+
     # Make sure the deterministic financial database exists
     # and contains the data expected by the golden dataset.
     build_financial_database(database_path)
@@ -49,7 +57,18 @@ def main() -> None:
         prompt_path=prompt_path
     )
 
-    timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+    baseline_data = load_evaluation_report(
+        baseline_path
+    )
+
+    comparison = compare_financial_runs(
+        current_results=evaluation_run.results,
+        previous_results=baseline_data["results"]
+    )
+
+    timestamp = datetime.now().strftime(
+        "%Y-%m-%d_%H-%M-%S"
+    )
 
     report_path = Path(
         "runs"
@@ -88,14 +107,54 @@ def main() -> None:
     )
 
     print()
+    print("Baseline comparison")
+    print("-" * 40)
 
-    if evaluation_run.failed_cases == 0:
-        print("All financial evaluation cases passed.")
-        return
+    print(
+        "Trusted baseline:",
+        baseline_path
+    )
 
+    print(
+        "Shared cases:",
+        comparison.shared_case_count
+    )
+
+    print(
+        "Previous shared pass rate:",
+        comparison.previous_pass_rate
+    )
+
+    print(
+        "Current shared pass rate:",
+        comparison.current_pass_rate
+    )
+
+    print(
+        "Pass-rate change:",
+        comparison.pass_rate_change
+    )
+
+    print(
+        "Regressions:",
+        comparison.regressions
+    )
+
+    print(
+        "Improvements:",
+        comparison.improvements
+    )
+
+    print()
     print("Report saved:", report_path)
     print()
-    
+
+    if evaluation_run.failed_cases == 0:
+        print(
+            "All financial evaluation cases passed."
+        )
+        return
+
     print("Failed cases:")
     print()
 
@@ -103,7 +162,9 @@ def main() -> None:
         if result.passed:
             continue
 
-        print(f"Case: {result.case_id}")
+        print(
+            f"Case: {result.case_id}"
+        )
 
         if result.generated_sql:
             print("Generated SQL:")
@@ -112,11 +173,12 @@ def main() -> None:
         print("Failure reasons:")
 
         for reason in result.failure_reasons:
-            print(f"- {reason}")
+            print(
+                f"- {reason}"
+            )
 
         print()
 
 
 if __name__ == "__main__":
     main()
-
