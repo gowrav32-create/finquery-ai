@@ -114,3 +114,103 @@ def test_runs_dataset_and_calculates_failure_rate(
     assert "row_values_mismatch" in (
         case_result.failure_reasons
     )
+
+def test_evaluation_run_survives_generation_error(
+    tmp_path,
+    monkeypatch
+):
+    import json
+
+    from src.regression_detection.runner import (
+        run_financial_evaluation
+    )
+
+    dataset_path = tmp_path / "dataset.json"
+    database_path = tmp_path / "test.duckdb"
+    prompt_path = tmp_path / "prompt.yaml"
+
+    dataset_path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "finance_001",
+                    "category": "ranking",
+                    "difficulty": "standard",
+                    "question": (
+                        "Which company had the highest "
+                        "revenue growth in 2024?"
+                    ),
+                    "expected_tables": [
+                        "financial_metrics"
+                    ],
+                    "expected_columns": [
+                        "ticker",
+                        "revenue_growth_pct"
+                    ],
+                    "expected_row_count": 1,
+                    "expected_rows": [
+                        {
+                            "ticker": "NSS",
+                            "revenue_growth_pct": 22.92
+                        }
+                    ],
+                    "requirements": {
+                        "must_be_read_only": True,
+                        "must_execute": True,
+                        "must_not_request_clarification": True
+                    },
+                    "notes": "Test generation failure."
+                }
+            ]
+        ),
+        encoding="utf-8"
+    )
+
+    prompt_path.write_text(
+        """
+version: "v2"
+feature_name: "financial_sql_generation"
+model: "llama3.2:3b"
+temperature: 0.0
+system_prompt: |
+  Test prompt.
+""".strip(),
+        encoding="utf-8"
+    )
+
+    database_path.touch()
+
+    def fake_run_financial_query(
+        question,
+        database_path,
+        prompt_path
+    ):
+        raise ValueError(
+            "Model returned invalid structured output"
+        )
+
+    monkeypatch.setattr(
+        "src.regression_detection.runner.run_financial_query",
+        fake_run_financial_query
+    )
+
+    evaluation_run = run_financial_evaluation(
+        dataset_path=dataset_path,
+        database_path=database_path,
+        prompt_path=prompt_path
+    )
+
+    assert evaluation_run.prompt_version == "v2"
+    assert evaluation_run.total_cases == 1
+    assert evaluation_run.passed_cases == 0
+    assert evaluation_run.failed_cases == 1
+
+    result = evaluation_run.results[0]
+
+    assert result.case_id == "finance_001"
+    assert result.passed is False
+
+    assert any(
+        "generation_error" in reason
+        for reason in result.failure_reasons
+    )

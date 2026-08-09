@@ -11,6 +11,10 @@ from src.regression_detection.models import (
     GoldenFinancialQueryCase
 )
 
+from src.query_engine.prompt_config import (
+    load_sql_prompt_config
+)
+
 
 @dataclass
 class FinancialEvaluationRun:
@@ -67,54 +71,90 @@ def run_financial_evaluation(
     prompt_path: Path
 ) -> FinancialEvaluationRun:
     """
-    Run every golden financial question through FinQuery AI.
+    Run every golden financial query against FinQuery AI.
 
-    Each response is compared against its human-verified expected
-    result and summarized into one evaluation run.
+    Individual model/query failures are recorded as failed
+    evaluation cases instead of crashing the entire run.
     """
     test_cases = load_golden_financial_cases(
         dataset_path
     )
 
-    results: list[FinancialCaseEvaluationResult] = []
+    prompt_config = load_sql_prompt_config(
+        prompt_path
+    )
 
-    prompt_version = "unknown"
+    prompt_version = prompt_config.version
+
+    results = []
 
     for test_case in test_cases:
-        response = run_financial_query(
-            question=test_case.question,
-            database_path=database_path,
-            prompt_path=prompt_path
-        )
+        try:
+            response = run_financial_query(
+                question=test_case.question,
+                database_path=database_path,
+                prompt_path=prompt_path
+            )
 
-        prompt_version = response.prompt_version
+            result = evaluate_financial_case(
+                test_case=test_case,
+                response=response
+            )
 
-        evaluation_result = evaluate_financial_case(
-            test_case=test_case,
-            response=response
-        )
+        except Exception as error:
+            result = FinancialCaseEvaluationResult(
+                case_id=test_case.id,
+                category=test_case.category,
+                passed=False,
+
+                clarification_match=False,
+                execution_match=False,
+                safety_match=False,
+                tables_match=False,
+                columns_match=False,
+                row_count_match=False,
+                rows_match=False,
+
+                generated_sql=None,
+                actual_tables=[],
+                actual_columns=[],
+                actual_rows=[],
+
+                failure_reasons=[
+                    (
+                        "generation_error: "
+                        f"{type(error).__name__}: "
+                        f"{error}"
+                    )
+                ]
+            )
 
         results.append(
-            evaluation_result
+            result
         )
 
-    total_cases = len(results)
-
     passed_cases = sum(
-        1
+        result.passed
         for result in results
-        if result.passed
+    )
+
+    total_cases = len(
+        results
     )
 
     failed_cases = (
-        total_cases - passed_cases
+        total_cases
+        - passed_cases
     )
 
     if total_cases == 0:
         pass_rate = 0.0
     else:
         pass_rate = round(
-            (passed_cases / total_cases) * 100,
+            (
+                passed_cases
+                / total_cases
+            ) * 100,
             2
         )
 
