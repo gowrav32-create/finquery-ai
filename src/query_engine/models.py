@@ -10,7 +10,7 @@ class SQLGenerationResult(BaseModel):
     - request clarification when the financial question is ambiguous.
     """
 
-    sql: str | None = None
+    sql: str | None
     explanation: str
 
     confidence: float = Field(
@@ -27,7 +27,7 @@ class SQLGenerationResult(BaseModel):
     )
 
     clarification_needed: bool = False
-    clarification_question: str | None = None
+    clarification_question: str | None
 
     @model_validator(mode="after")
     def validate_sql_or_clarification(
