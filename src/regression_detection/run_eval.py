@@ -38,7 +38,7 @@ def main() -> None:
     )
 
     baseline_path = Path(
-        "baselines/trusted_baseline_v1.json"
+        "baselines/trusted_baseline_v2.json"
     )
 
     # Make sure the deterministic financial database exists
