@@ -57,7 +57,9 @@ def test_format_schema_for_prompt_creates_readable_context():
         }
     }
 
-    formatted_schema = format_schema_for_prompt(schema)
+    formatted_schema = format_schema_for_prompt(
+        schema
+    )
 
     assert formatted_schema == (
         "TABLE companies\n"
@@ -68,5 +70,31 @@ def test_format_schema_for_prompt_creates_readable_context():
         "- ticker: VARCHAR\n"
         "- fiscal_year: INTEGER\n"
         "- revenue_growth_pct: DOUBLE"
+        " | Meaning: year-over-year percentage change in revenue"
     )
+
+def test_formatted_schema_includes_financial_metric_descriptions():
+    schema = {
+        "financial_metrics": {
+            "ticker": "VARCHAR",
+            "fiscal_year": "INTEGER",
+            "revenue_growth_pct": "DOUBLE",
+            "operating_margin_pct": "DOUBLE",
+            "net_margin_pct": "DOUBLE",
+            "free_cash_flow": "DOUBLE",
+            "return_on_equity_pct": "DOUBLE",
+            "debt_to_equity": "DOUBLE"
+        }
+    }
+
+    formatted = format_schema_for_prompt(
+        schema
+    )
+
+    assert "operating income divided by revenue" in formatted
+    assert "year-over-year percentage change in revenue" in formatted
+    assert "net income divided by revenue" in formatted
+    assert "operating cash flow minus capital expenditures" in formatted
+    assert "net income divided by shareholder equity" in formatted
+    assert "total debt divided by shareholder equity" in formatted
     

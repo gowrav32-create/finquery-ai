@@ -2,6 +2,29 @@ from pathlib import Path
 
 import duckdb
 
+FINANCIAL_COLUMN_DESCRIPTIONS = {
+    "revenue_growth_pct": (
+        "year-over-year percentage change in revenue"
+    ),
+    "operating_margin_pct": (
+        "operating income divided by revenue, "
+        "expressed as a percentage"
+    ),
+    "net_margin_pct": (
+        "net income divided by revenue, "
+        "expressed as a percentage"
+    ),
+    "free_cash_flow": (
+        "operating cash flow minus capital expenditures"
+    ),
+    "return_on_equity_pct": (
+        "net income divided by shareholder equity, "
+        "expressed as a percentage"
+    ),
+    "debt_to_equity": (
+        "total debt divided by shareholder equity"
+    )
+}
 
 def get_database_schema(
     database_path: Path
@@ -65,9 +88,19 @@ def format_schema_for_prompt(
         ]
 
         for column_name, data_type in columns.items():
-            lines.append(
-                f"- {column_name}: {data_type}"
+            description = FINANCIAL_COLUMN_DESCRIPTIONS.get(
+                column_name
             )
+
+            if description:
+                lines.append(
+                    f"- {column_name}: {data_type}"
+                    f" | Meaning: {description}"
+                )
+            else:
+                lines.append(
+                    f"- {column_name}: {data_type}"
+                )
 
         sections.append(
             "\n".join(lines)
