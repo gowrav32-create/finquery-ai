@@ -17,8 +17,9 @@ def test_loads_golden_financial_dataset():
         dataset_path
     )
 
-    assert len(test_cases) == 1
+    assert len(test_cases) == 2
     assert test_cases[0].id == "finance_001"
+    assert test_cases[1].id == "finance_002"
 
     assert test_cases[0].question == (
         "Which company had the highest "
@@ -90,13 +91,14 @@ def test_runs_dataset_and_calculates_failure_rate(
     )
 
     assert evaluation_run.prompt_version == "v1"
-    assert evaluation_run.total_cases == 1
+    assert evaluation_run.total_cases == 2
     assert evaluation_run.passed_cases == 0
-    assert evaluation_run.failed_cases == 1
+    assert evaluation_run.failed_cases == 2
     assert evaluation_run.pass_rate == 0.0
 
     assert evaluation_run.failed_case_ids == [
-        "finance_001"
+        "finance_001",
+        "finance_002"
     ]
 
     case_result = evaluation_run.results[0]
@@ -214,3 +216,105 @@ system_prompt: |
         "generation_error" in reason
         for reason in result.failure_reasons
     )
+
+def test_evaluation_reports_semantic_validation_failure(
+    tmp_path,
+    monkeypatch
+):
+    import json
+
+    from src.query_engine.service import (
+        FinancialSemanticError
+    )
+    from src.regression_detection.runner import (
+        run_financial_evaluation
+    )
+
+    dataset_path = tmp_path / "dataset.json"
+    database_path = tmp_path / "test.duckdb"
+    prompt_path = tmp_path / "prompt.yaml"
+
+    dataset_path.write_text(
+        json.dumps(
+            [
+                {
+                    "id": "finance_002",
+                    "category": "profitability",
+                    "difficulty": "standard",
+                    "question": (
+                        "What was NSS's operating "
+                        "margin in 2024?"
+                    ),
+                    "expected_tables": [
+                        "financial_metrics"
+                    ],
+                    "expected_columns": [
+                        "ticker",
+                        "operating_margin_pct"
+                    ],
+                    "expected_row_count": 1,
+                    "expected_rows": [
+                        {
+                            "ticker": "NSS",
+                            "operating_margin_pct": 24.58
+                        }
+                    ],
+                    "requirements": {
+                        "must_be_read_only": True,
+                        "must_execute": True,
+                        "must_not_request_clarification": True
+                    },
+                    "notes": "Semantic validation test."
+                }
+            ]
+        ),
+        encoding="utf-8"
+    )
+
+    prompt_path.write_text(
+        """
+version: "v4"
+feature_name: "financial_sql_generation"
+model: "llama3.2:3b"
+temperature: 0.0
+system_prompt: |
+  Test prompt.
+""".strip(),
+        encoding="utf-8"
+    )
+
+    database_path.touch()
+
+    def fake_run_financial_query(
+        question,
+        database_path,
+        prompt_path
+    ):
+        raise FinancialSemanticError(
+            "Generated SQL does not reference "
+            "the requested financial metric(s): "
+            "operating_margin_pct"
+        )
+
+    monkeypatch.setattr(
+        "src.regression_detection.runner.run_financial_query",
+        fake_run_financial_query
+    )
+
+    evaluation_run = run_financial_evaluation(
+        dataset_path=dataset_path,
+        database_path=database_path,
+        prompt_path=prompt_path
+    )
+
+    result = evaluation_run.results[0]
+
+    assert result.passed is False
+
+    assert result.failure_reasons == [
+        (
+            "semantic_validation_failed: "
+            "operating_margin_pct"
+        )
+    ]
+    

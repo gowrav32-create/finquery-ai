@@ -160,4 +160,101 @@ def test_returns_clarification_without_executing_sql(
         "Do you mean highest total revenue "
         "or highest revenue growth?"
     )
+
+import pytest
+
+from src.query_engine.models import SQLGenerationResult
+from src.query_engine.service import (
+    FinancialSemanticError,
+    run_financial_query
+)
+
+
+def test_blocks_sql_using_wrong_financial_metric(
+    tmp_path,
+    monkeypatch
+):
+    database_path = tmp_path / "financial.duckdb"
+    database_path.touch()
+
+    prompt_path = tmp_path / "prompt.yaml"
+
+    prompt_path.write_text(
+        """
+version: "v4"
+feature_name: "financial_sql_generation"
+model: "llama3.2:3b"
+temperature: 0.0
+system_prompt: |
+  Test prompt.
+""".strip(),
+        encoding="utf-8"
+    )
+
+    monkeypatch.setattr(
+        "src.query_engine.service.get_database_schema",
+        lambda database_path: {
+            "financial_metrics": {
+                "ticker": "VARCHAR",
+                "fiscal_year": "INTEGER",
+                "revenue_growth_pct": "DOUBLE",
+                "operating_margin_pct": "DOUBLE"
+            }
+        }
+    )
+
+    monkeypatch.setattr(
+        "src.query_engine.service.generate_financial_sql",
+        lambda question, schema_context, prompt_config: (
+            SQLGenerationResult(
+                sql=(
+                    "SELECT ticker, revenue_growth_pct "
+                    "FROM financial_metrics "
+                    "WHERE ticker = 'NSS' "
+                    "AND fiscal_year = 2024"
+                ),
+                explanation="Test SQL.",
+                confidence=0.9,
+                tables_used=[
+                    "financial_metrics"
+                ],
+                columns_used=[
+                    "ticker",
+                    "revenue_growth_pct"
+                ],
+                clarification_needed=False,
+                clarification_question=None
+            )
+        )
+    )
+
+    def should_not_execute(
+        database_path,
+        sql
+    ):
+        raise AssertionError(
+            "SQL should not execute when "
+            "semantic validation fails."
+        )
+
+    monkeypatch.setattr(
+        "src.query_engine.service.run_validated_query",
+        should_not_execute
+    )
+
+    with pytest.raises(
+        FinancialSemanticError
+    ) as error:
+        run_financial_query(
+            question=(
+                "What was NSS's operating "
+                "margin in 2024?"
+            ),
+            database_path=database_path,
+            prompt_path=prompt_path
+        )
+
+    assert "operating_margin_pct" in str(
+        error.value
+    )
     

@@ -1,20 +1,19 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from src.database.schema import (
-    format_schema_for_prompt,
-    get_database_schema
-)
+from src.database.schema import (format_schema_for_prompt, get_database_schema)
 from src.query_engine.generator import generate_financial_sql
 from src.query_engine.models import SQLGenerationResult
-from src.query_engine.pipeline import (
-    ValidatedQueryExecution,
-    run_validated_query
-)
-from src.query_engine.prompt_config import (
-    load_sql_prompt_config
-)
+from src.query_engine.pipeline import (ValidatedQueryExecution, run_validated_query)
+from src.query_engine.prompt_config import (load_sql_prompt_config)
 
+from src.query_engine.semantics import (validate_requested_metrics)
+
+class FinancialSemanticError(ValueError):
+    """
+    Raised when generated SQL does not use the
+    financial metric requested by the user.
+    """
 
 @dataclass
 class FinancialQueryResponse:
@@ -86,6 +85,23 @@ def run_financial_query(
             "The SQL generator returned no SQL and did not "
             "request clarification."
         )
+
+    semantic_result = validate_requested_metrics(
+            question=question.strip(),
+            sql=generation_result.sql
+        )
+    
+    if not semantic_result.is_valid:
+        missing_metrics = ", ".join(
+            semantic_result.missing_metrics
+        )
+    
+        raise FinancialSemanticError(
+            "Generated SQL does not reference "
+            "the requested financial metric(s): "
+            f"{missing_metrics}"
+        )
+    
 
     execution = run_validated_query(
         database_path=database_path,

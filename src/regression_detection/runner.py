@@ -2,7 +2,7 @@ import json
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from src.query_engine.service import run_financial_query
+from src.query_engine.service import FinancialSemanticError, run_financial_query
 from src.regression_detection.evaluator import (
     FinancialCaseEvaluationResult,
     evaluate_financial_case
@@ -99,6 +99,47 @@ def run_financial_evaluation(
             result = evaluate_financial_case(
                 test_case=test_case,
                 response=response
+            )
+
+        except FinancialSemanticError as error:
+            error_message = str(error)
+
+            prefix = (
+                "Generated SQL does not reference "
+                "the requested financial metric(s): "
+            )
+
+            if error_message.startswith(prefix):
+                missing_metrics = error_message[
+                    len(prefix):
+                ].strip()
+            else:
+                missing_metrics = error_message
+
+            result = FinancialCaseEvaluationResult(
+                case_id=test_case.id,
+                category=test_case.category,
+                passed=False,
+
+                clarification_match=True,
+                execution_match=False,
+                safety_match=True,
+                tables_match=False,
+                columns_match=False,
+                row_count_match=False,
+                rows_match=False,
+
+                generated_sql=None,
+                actual_tables=[],
+                actual_columns=[],
+                actual_rows=[],
+
+                failure_reasons=[
+                    (
+                        "semantic_validation_failed: "
+                        f"{missing_metrics}"
+                    )
+                ]
             )
 
         except Exception as error:
