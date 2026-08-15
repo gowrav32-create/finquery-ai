@@ -24,5 +24,31 @@
       "must_not_request_clarification": true
     },
     "notes": "The answer must include both the winning ticker and the supporting revenue-growth value."
+  },
+  {
+    "id": "finance_002",
+    "category": "profitability",
+    "difficulty": "standard",
+    "question": "What was NSS's operating margin in 2024?",
+    "expected_tables": [
+     "financial_metrics"
+    ],
+    "expected_columns": [
+      "ticker",
+      "operating_margin_pct"
+    ],
+    "expected_row_count": 1,
+    "expected_rows": [
+      {
+        "ticker": "NSS",
+        "operating_margin_pct": 24.58
+      }
+    ],
+    "requirements": {
+      "must_be_read_only": true,
+      "must_execute": true,
+      "must_not_request_clarification": true
+    },
+    "notes": "Tests whether the model can retrieve a precomputed profitability metric for a specific ticker and fiscal year without unnecessary aggregation or joins."
   }
 ]

@@ -34,7 +34,7 @@ def main() -> None:
     )
 
     prompt_path = Path(
-        "prompts/sql_generation_v2.yaml"
+        "prompts/sql_generation_v4.yaml"
     )
 
     baseline_path = Path(
